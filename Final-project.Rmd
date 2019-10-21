@@ -1,0 +1,105 @@
+---
+title: "Final Project Machine Learning Coursera"
+author: "Derrick Williams"
+date: "10/20/2019"
+output: html_document
+---
+# Background
+>Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+#Goals of project
+1) use data from accelerometers predict the manner in which 6 different participants preformed dumbell lifts (5 different outcomes in classe variable).
+2) produce a report explaining your model
+3) describe cross validation used
+4) express expected out of sample error
+5) explain choices made
+
+##Important packages
+
+```{r}
+library(lattice)
+library(ggplot2)
+library(caret)
+library(dplyr)
+library(randomForest)
+```
+
+##Data downloading, exploration, and cleaning
+
+data was generously sourced from: http://groupware.les.inf.puc-rio.br/har
+
+training data available:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+```{r}
+## downloading Data
+dat = read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", header= T, na.strings=c("","NA"))
+
+## data cleaning
+data_col <- dat[ , apply(dat, 2, function(x) !any(is.na(x)))]
+```
+
+Data was cleaned to remove columns that contained mostly NA values. The number so variables were reduced by 100 by removing the columns with mostly NA values.
+
+##Data Proportioning
+
+Data was broken into training and validation data sets because the error rates for the training data tends to be optimistic. Thus, the independent validation set was only used once in to determine model accuracy.
+
+```{r}
+set.seed(4545)
+data_col$user_name <- as.factor(data_col$user_name)
+data_col$classe <- as.factor(data_col$classe)
+data_col$user_name <- as.factor(data_col$user_name)
+InTrain <- createDataPartition(data_col$classe, p = 0.75, list = FALSE)
+train1 <- data_col[InTrain, ]
+valid1 <- data_col[-InTrain, ]
+```
+
+
+##Building simple tree prediction model
+```{r}
+model1 <- train(classe~., data = train1, method = "rpart")
+```
+
+##Determining accuracy of rpart model
+```{r}
+valid_prediction <- predict(model1, valid1)
+confusionMatrix(valid_prediction, valid1$classe)$overall[1]
+```
+
+Rpart is a relitively simple model system. ~66% accuracy is fairly low. Running Random Forest could result in a higher accuracy given ensembling.
+
+##Building Random Forest model
+
+```{r}
+model2 <- train(classe~., data = train1, method = "rf", trcontrol = trainControl(method = "cv", number = 5, verboseIter = F))
+```
+
+Random forests also are capable of managing cross-validation component in the "trainControl" feature of the train function.
+
+##Determining accuracy of Random Forest model
+```{r}
+valid_prediction2 <- predict(model2, valid1)
+confusionMatrix(valid_prediction2, valid1$classe)$overall[1]
+```
+
+Nearly 99.98% accuracy. Therefore, model2 (random forest) will be used because it has a much higher accuacy than rpart, i.e. model1.
+
+```{r}
+table(valid_prediction2, valid1$classe)
+```
+Out of the 4904 observations there was one element that was misclassified. Thus, the misclassification rate is 0.02%. More precisely, it should misclassify 2 classe in 10000.
+
+##test
+```{r}
+test_dat = read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", header= T, na.strings=c("","NA"))
+
+## data cleaning
+test_data_col <- test_dat[ , apply(test_dat, 2, function(x) !any(is.na(x)))]
+
+test_pred <- predict(model2, test_data_col)
+test_pred
+```
+ 
+thank you for grading my project.
